@@ -7,7 +7,13 @@ use android_logger::Config;
 #[cfg(target_os = "android")]
 use log::LevelFilter;
 
-use crate::{apk_sign, assets, debug, defs, init_event, ksucalls, module, utils};
+//use crate::{apk_sign, assets, debug, defs, init_event, ksucalls, module, utils};
+
+use crate::{
+        apk_sign, debug, defs, ksu, module, 
+            module_api::{self, ModuleApi},
+                utils,
+};
 
 /// KernelSU userspace cli
 #[derive(Parser, Debug)]
@@ -288,12 +294,16 @@ pub fn run() -> Result<()> {
     }
 
     let cli = Args::parse();
+    let api = module_api::get_api();
 
     log::info!("command: {:?}", cli.command);
 
     let result = match cli.command {
-        Commands::PostFsData => init_event::on_post_data_fs(),
-        Commands::BootCompleted => init_event::on_boot_completed(),
+        //Commands::PostFsData => init_event::on_post_data_fs(),
+        //Commands::BootCompleted => init_event::on_boot_completed(),
+        Commands::PostFsData => api.on_post_data_fs(),
+        Commands::BootCompleted => api.on_boot_completed(),
+        Commands::Services => api.on_services(),
 
         Commands::Module { command } => {
             #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -302,11 +312,16 @@ pub fn run() -> Result<()> {
                 utils::unshare_mnt_ns()?;
             }
             match command {
-                Module::Install { zip } => module::install_module(&zip),
-                Module::Uninstall { id } => module::uninstall_module(&id),
-                Module::Enable { id } => module::enable_module(&id),
-                Module::Disable { id } => module::disable_module(&id),
-                Module::List => module::list_modules(),
+                //Module::Install { zip } => module::install_module(&zip),
+                //Module::Uninstall { id } => module::uninstall_module(&id),
+                //Module::Enable { id } => module::enable_module(&id),
+                //Module::Disable { id } => module::disable_module(&id),
+                //Module::List => module::list_modules(),
+                Module::Install { zip } => api.install_module(&zip),
+                Module::Uninstall { id } => api.uninstall_module(&id),
+                Module::Enable { id } => api.enable_module(&id),
+                Module::Disable { id } => api.disable_module(&id),
+                Module::List => api.list_modules(),
                 Module::Shrink => module::shrink_ksu_images(),
             }
         }
@@ -341,7 +356,8 @@ pub fn run() -> Result<()> {
                 Ok(())
             }
             Debug::Su { global_mnt } => crate::su::grant_root(global_mnt),
-            Debug::Mount => init_event::mount_modules_systemlessly(defs::MODULE_DIR),
+            //Debug::Mount => init_event::mount_modules_systemlessly(defs::MODULE_DIR),
+            Debug::Mount => api.mount_modules(),
             Debug::Xcp {
                 src,
                 dst,
